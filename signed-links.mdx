@@ -1,0 +1,137 @@
+---
+title: Signed Links
+description: Authenticate users so they can vote without creating accounts
+---
+
+# Signed Links
+
+Signed Links let your users vote and submit requests without creating a FeatKit account. You pass their identity from your app, we verify the signature.
+
+## How it works
+
+1. Your backend generates a signed URL with user info
+2. Your app opens this URL
+3. User is automatically authenticated on the portal
+4. Votes and submissions are tied to their identity
+
+## What you need
+
+- **Project ID** — from Project Settings
+- **Secret Key** — from Project Settings → Signed Links
+- **User info:** ID (required), email (optional), name (optional)
+
+## Generating a Signed Link
+
+Your backend creates a signed token with user data.
+
+### Signature structure
+
+```
+Payload: { user_id, email, name, timestamp, expires }
+Signature: HMAC-SHA256(payload, secret_key)
+Final URL: https://featkit.io/p/[slug]?token=[base64payload].[signature]
+```
+
+### Code examples
+
+<CodeGroup>
+```python Python
+import hmac
+import hashlib
+import base64
+import json
+import time
+
+def generate_signed_link(slug, secret_key, user_id, email=None, name=None):
+    payload = {
+        "user_id": user_id,
+        "email": email,
+        "name": name,
+        "timestamp": int(time.time()),
+        "expires": int(time.time()) + 86400  # 24 hours
+    }
+    payload_json = json.dumps(payload, separators=(',', ':'))
+    payload_b64 = base64.urlsafe_b64encode(payload_json.encode()).decode()
+    signature = hmac.new(secret_key.encode(), payload_b64.encode(), hashlib.sha256).hexdigest()
+    return f"https://featkit.io/p/{slug}?token={payload_b64}.{signature}"
+```
+
+```javascript Node.js
+const crypto = require('crypto');
+
+function generateSignedLink(slug, secretKey, userId, email = null, name = null) {
+  const payload = {
+    user_id: userId,
+    email: email,
+    name: name,
+    timestamp: Math.floor(Date.now() / 1000),
+    expires: Math.floor(Date.now() / 1000) + 86400 // 24 hours
+  };
+  const payloadJson = JSON.stringify(payload);
+  const payloadB64 = Buffer.from(payloadJson).toString('base64url');
+  const signature = crypto.createHmac('sha256', secretKey).update(payloadB64).digest('hex');
+  return `https://featkit.io/p/${slug}?token=${payloadB64}.${signature}`;
+}
+```
+
+```ruby Ruby
+require 'openssl'
+require 'base64'
+require 'json'
+
+def generate_signed_link(slug, secret_key, user_id, email: nil, name: nil)
+  payload = {
+    user_id: user_id,
+    email: email,
+    name: name,
+    timestamp: Time.now.to_i,
+    expires: Time.now.to_i + 86400 # 24 hours
+  }
+  payload_json = payload.to_json
+  payload_b64 = Base64.urlsafe_encode64(payload_json, padding: false)
+  signature = OpenSSL::HMAC.hexdigest('sha256', secret_key, payload_b64)
+  "https://featkit.io/p/#{slug}?token=#{payload_b64}.#{signature}"
+end
+```
+</CodeGroup>
+
+## Token expiration
+
+Tokens should expire. Recommended: **24 hours**. Set the `expires` field to `timestamp + 86400`.
+
+<Tip>
+Shorter expiration times (1-4 hours) are more secure but require more frequent token generation.
+</Tip>
+
+## Opening in your iOS app
+
+Request the signed URL from your backend, then open it:
+
+```swift
+import SafariServices
+
+func openAuthenticatedPortal(signedURL: String) {
+    guard let url = URL(string: signedURL) else { return }
+    let safari = SFSafariViewController(url: url)
+    present(safari, animated: true)
+}
+```
+
+## Testing
+
+Generate a test link in your dashboard:
+
+**Project Settings → Signed Links → Test Link Generator**
+
+This lets you verify your integration without deploying backend changes.
+
+## Security notes
+
+<Warning>
+**Never expose your Secret Key in client code.** Generate tokens on your backend only.
+</Warning>
+
+- Store your Secret Key securely (environment variables, secrets manager)
+- Generate tokens server-side only
+- Use HTTPS for all requests
+- Set reasonable expiration times
