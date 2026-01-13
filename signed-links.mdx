@@ -1,34 +1,43 @@
 ---
 title: Signed Links
-description: Authenticate users so they can vote without creating accounts
+description: Server-side authentication for web and custom integrations
 ---
 
 # Signed Links
 
-Signed Links let your users vote and submit requests without creating a FeatKit account. You pass their identity from your app, we verify the signature.
+<Note>
+**Using the iOS SDK?** You don't need signed links. The SDK handles authentication automatically via `FeatKit.identify()`. This page is for web apps and custom integrations.
+</Note>
+
+Signed Links let you authenticate users from your backend without exposing credentials in client code. Use this approach when:
+
+- Building a **web app** that opens the portal
+- Creating a **custom integration** without the SDK
+- Supporting **non-iOS platforms**
+- Needing **server-controlled authentication**
 
 ## How it works
 
 1. Your backend generates a signed URL with user info
-2. Your app opens this URL
+2. Your app/website opens this URL
 3. User is automatically authenticated on the portal
 4. Votes and submissions are tied to their identity
 
 ## What you need
 
-- **Project ID** — from Project Settings
+- **Project Slug** — from Project Settings → General
 - **Secret Key** — from Project Settings → Signed Links
 - **User info:** ID (required), email (optional), name (optional)
 
 ## Generating a Signed Link
 
-Your backend creates a signed token with user data.
+Your backend creates a signed token with user data using HMAC-SHA256.
 
 ### Signature structure
 
 ```
 Payload: { user_id, email, name, timestamp, expires }
-Signature: HMAC-SHA256(payload, secret_key)
+Signature: HMAC-SHA256(base64(payload), secret_key)
 Final URL: https://featkit.com/p/[slug]?token=[base64payload].[signature]
 ```
 
@@ -95,6 +104,31 @@ end
 ```
 </CodeGroup>
 
+## Using in a web app
+
+```javascript
+// Frontend: Request signed URL from your backend
+const response = await fetch('/api/featkit-link');
+const { url } = await response.json();
+
+// Open in new tab or redirect
+window.open(url, '_blank');
+```
+
+```javascript
+// Backend (Express example)
+app.get('/api/featkit-link', (req, res) => {
+  const url = generateSignedLink(
+    process.env.FEATKIT_SLUG,
+    process.env.FEATKIT_SECRET,
+    req.user.id,
+    req.user.email,
+    req.user.name
+  );
+  res.json({ url });
+});
+```
+
 ## Token expiration
 
 Tokens should expire. Recommended: **24 hours**. Set the `expires` field to `timestamp + 86400`.
@@ -102,20 +136,6 @@ Tokens should expire. Recommended: **24 hours**. Set the `expires` field to `tim
 <Tip>
 Shorter expiration times (1-4 hours) are more secure but require more frequent token generation.
 </Tip>
-
-## Opening in your iOS app
-
-Request the signed URL from your backend, then open it:
-
-```swift
-import SafariServices
-
-func openAuthenticatedPortal(signedURL: String) {
-    guard let url = URL(string: signedURL) else { return }
-    let safari = SFSafariViewController(url: url)
-    present(safari, animated: true)
-}
-```
 
 ## Testing
 

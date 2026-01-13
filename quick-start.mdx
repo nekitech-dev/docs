@@ -5,47 +5,118 @@ description: Add FeatKit to your iOS app in 5 minutes
 
 # Quick Start
 
-Add a feature request portal to your iOS app in 5 minutes. Your users can submit ideas, vote, and see your roadmap — all with a single link.
+Add a feature request portal to your iOS app in 5 minutes. Your users can submit ideas, vote, and see your roadmap — all with a single line of code.
 
-## Step 1: Create your project
+## Step 1: Add the SDK
 
-1. Sign up at [featkit.com](https://featkit.com)
-2. Create a project (usually one per app)
-3. Your portal is live immediately at: `https://featkit.com/p/[your-project-slug]`
+Add FeatKit to your project using Swift Package Manager.
+
+**In Xcode:**
+
+1. Go to **File → Add Package Dependencies**
+2. Enter the repository URL: `https://github.com/featkit/featkit-ios`
+3. Select **Up to Next Major Version** from `1.0.0`
+4. Click **Add Package**
 
 ## Step 2: Get your credentials
 
-1. Go to **Project Settings → Signed Links**
-2. Copy your **Project ID** and **Secret Key**
-3. You'll use these to authenticate users
+1. Sign up at [featkit.com](https://app.featkit.com)
+2. Create a project (usually one per app)
+3. Go to **Project Settings → API Keys**
+4. Copy your **Project ID** and **API Key**
 
-## Step 3: Add to your app
+## Step 3: Configure the SDK
 
-Open the portal from anywhere in your app:
+Initialize FeatKit when your app launches:
 
 ```swift
-import SafariServices
+import FeatKit
 
-func openFeatKitPortal() {
-    let url = URL(string: "https://featkit.com/p/your-project-slug")!
-    let safari = SFSafariViewController(url: url)
-    present(safari, animated: true)
+// In AppDelegate
+func application(_ application: UIApplication,
+                 didFinishLaunchingWithOptions options: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    FeatKit.configure(projectId: "YOUR_PROJECT_ID", apiKey: "YOUR_API_KEY")
+    return true
+}
+
+// Or in SwiftUI App
+@main
+struct MyApp: App {
+    init() {
+        FeatKit.configure(projectId: "YOUR_PROJECT_ID", apiKey: "YOUR_API_KEY")
+    }
+
+    var body: some Scene {
+        WindowGroup {
+            ContentView()
+        }
+    }
 }
 ```
 
-## Step 4: Authenticate users (recommended)
+## Step 4: Identify users
 
-So users don't need to create accounts, pass their identity via Signed Links.
+After a user logs in, identify them so their feedback is associated with their account:
 
-<Card title="Signed Links" icon="signature" href="/signed-links">
-  Learn how to authenticate users seamlessly
-</Card>
+```swift
+// After user login
+await FeatKit.identify(
+    userId: user.id,
+    email: user.email,
+    name: user.displayName
+)
+```
+
+<Tip>
+For apps without user accounts, use `FeatKit.identifyAnonymous()` instead. The SDK generates a stable device identifier.
+</Tip>
+
+## Step 5: Open the portal
+
+Open the feedback portal from anywhere in your app:
+
+```swift
+// That's it — one line!
+try await FeatKit.openPortal()
+```
+
+The SDK handles authentication automatically. Users see the portal in a native Safari view and can submit feature requests, vote on ideas, and view your roadmap.
 
 ---
 
-## That's it
+## Full example
 
-Your users can now submit feature requests. View them in your dashboard at [featkit.com](https://featkit.com).
+```swift
+import SwiftUI
+import FeatKit
+
+struct SettingsView: View {
+    var body: some View {
+        List {
+            Button("Feature Requests") {
+                Task {
+                    try await FeatKit.openPortal()
+                }
+            }
+        }
+    }
+}
+```
+
+---
+
+## What's included
+
+The SDK provides much more than just opening the portal:
+
+| Feature | Method |
+|---------|--------|
+| Open portal | `FeatKit.openPortal()` |
+| Get portal URL | `FeatKit.getPortalURL()` |
+| List features | `FeatKit.getFeatures()` |
+| Submit feature | `FeatKit.submitFeature(title:description:)` |
+| Vote | `FeatKit.vote(featureId:)` |
+| Events | `FeatKit.onEvent { }` |
 
 ## Next steps
 
@@ -53,7 +124,7 @@ Your users can now submit feature requests. View them in your dashboard at [feat
   <Card title="Customize your portal" icon="palette" href="/customization">
     Match your app's look and feel
   </Card>
-  <Card title="Set up Signed Links" icon="signature" href="/signed-links">
-    Enable seamless user authentication
+  <Card title="Build custom UI" icon="code" href="/sdk-reference">
+    Use the SDK API for native experiences
   </Card>
 </CardGroup>
